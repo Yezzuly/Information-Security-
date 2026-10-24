@@ -1,0 +1,29 @@
+Program: /challenge/prog (Level 7)
+
+Binary info:
+  - setuid ELF 64-bit LSB executable, x86-64, dynamically linked, stripped
+
+Static analysis findings:
+  - strings output includes:
+      "Size of the packet to read must be greater than zero."
+  - Four calls to read@plt found via objdump, consistent with a
+    multi-stage read structure similar to earlier levels.
+  - No gets/strcpy/scanf/sprintf calls found.
+
+Behavior observed during testing:
+  - Input "AAAA\n" -> exits normally (code 0)
+  - Empty input -> exits normally (code 0)
+
+Vulnerability class:
+  Buffer overflow from a mismatch between a declared/claimed size and
+  the actual number of input bytes supplied, consistent with the
+  pattern seen in previous levels.
+
+Fuzzer parameters used:
+  prng_seed  = 1
+  iterations = 1
+
+Result:
+  Crash file: level7.crash (147 bytes)
+  Signal: SIGSEGV (11)
+  Verified via: /challenge/challenge < level7.crash -> flag received

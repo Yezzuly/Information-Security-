@@ -1,0 +1,34 @@
+Program: /challenge/prog (Level 10)
+
+Binary info:
+  - setuid ELF 64-bit LSB executable, x86-64, dynamically linked, stripped
+
+Static analysis findings:
+  - strings output includes both:
+      "Size of the packet to read must be greater than zero."
+      "Size of each element must be greater than zero."
+    -> same dual size-validation pattern as Level 8 (overall size
+       plus per-element size).
+  - Three calls to read@plt found via objdump.
+  - "_exit" symbol present (slightly different program exit handling
+    compared to earlier levels, but does not change the overall
+    input-parsing structure).
+  - No gets/strcpy/scanf/sprintf calls found.
+
+Behavior observed during testing:
+  - Input "AAAA\n" -> exits normally (code 0)
+  - Empty input -> exits normally (code 0)
+
+Vulnerability class:
+  Buffer overflow from a mismatch between a declared/claimed size
+  (and/or element size) and the actual number of input bytes
+  supplied, consistent with the pattern seen in previous levels.
+
+Fuzzer parameters used:
+  prng_seed  = 1
+  iterations = 40
+
+Result:
+  Crash file: level10.crash (287 bytes)
+  Signal: SIGSEGV (11)
+  Verified via: /challenge/challenge < level10.crash -> flag received

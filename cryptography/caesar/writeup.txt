@@ -1,0 +1,11 @@
+Caesar Cipher Assignment Write-up
+
+For this assignment, I started by looking at the provided caesar.py file to understand how the encryption works. I noticed that it implements a Caesar cipher where each uppercase letter is shifted forward by a randomly generated key between 1 and 25.
+
+The key was stored in caesarkey.txt as a letter (for example, “Key is K”). I converted this letter into a numeric shift value by mapping it to its position in the alphabet, where A = 0 and Z = 25.
+
+To decrypt the message, I reversed the encryption process by subtracting the key value from each character in the ciphertext. Since the alphabet is circular, I used modulo 26 to ensure the result stays within the range of A to Z.
+
+After reading the ciphertext from ciphertext.txt, I applied this decryption logic to each character and wrote the resulting plaintext into caesarplaintext.txt.
+
+Finally, I ran the provided challenge script to verify my solution, and it successfully produced the correct output and flag.

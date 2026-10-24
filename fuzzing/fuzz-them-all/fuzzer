@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""
+Generic mutation-based fuzzer.
+
+Usage:
+    ./fuzzer <prng_seed> <iterations>
+
+Behavior:
+    - Reads a fixed seed file ("seed.bin") that lives next to this script.
+    - Seeds a PRNG with <prng_seed> so runs are fully reproducible.
+    - Applies <iterations> rounds of mutation to the seed bytes.
+    - Writes the resulting raw bytes to stdout.
+
+This script contains NO knowledge of any specific challenge/level.
+It only ever sees: the seed file, prng_seed, and iterations.
+"""
+
+import sys
+import os
+import random
+
+SEED_FILENAME = "seed.bin"
+PER_BYTE_MUTATION_RATE = 0.13
+
+
+def load_seed():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    seed_path = os.path.join(script_dir, SEED_FILENAME)
+    with open(seed_path, "rb") as f:
+        return bytearray(f.read())
+
+
+def mutate_byte(b, rng):
+    """Apply one of a few byte-level mutation strategies."""
+    choice = rng.random()
+    if choice < 0.40:
+        # Full random replacement.
+        return rng.randint(0, 255)
+    elif choice < 0.65:
+        # Single bit flip.
+        return b ^ (1 << rng.randint(0, 7))
+    elif choice < 0.85:
+        # Arithmetic nudge (helps land on interesting boundary values).
+        delta = rng.randint(1, 255)
+        return (b + delta) % 256
+    else:
+        # Push toward an extreme value (0x00 or 0xFF).
+        return 0 if b >= 128 else 255
+
+
+def mutate_once(data, rng):
+    """One full mutation pass: per-byte mutation + occasional structural change."""
+    data = bytearray(data)
+
+    # Per-byte mutation at a fixed probability.
+    for i in range(len(data)):
+        if rng.random() < PER_BYTE_MUTATION_RATE:
+            data[i] = mutate_byte(data[i], rng)
+
+    # Occasional structural mutation to change the overall shape/length.
+    roll = rng.random()
+    if roll < 0.15:
+        # Insert a random chunk at a random position.
+        pos = rng.randint(0, len(data))
+        chunk_len = rng.randint(1, 32)
+        chunk = bytes(rng.randint(0, 255) for _ in range(chunk_len))
+        data[pos:pos] = chunk
+    elif roll < 0.30 and len(data) > 1:
+        # Delete a random chunk.
+        pos = rng.randint(0, len(data) - 1)
+        chunk_len = rng.randint(1, min(32, len(data) - pos))
+        del data[pos:pos + chunk_len]
+    elif roll < 0.45 and len(data) > 0:
+        # Duplicate a chunk elsewhere (grows the input, useful for
+        # size/length mismatches and overflow-style bugs in general).
+        src = rng.randint(0, len(data) - 1)
+        chunk_len = rng.randint(1, min(64, len(data) - src))
+        chunk = data[src:src + chunk_len]
+        pos = rng.randint(0, len(data))
+        data[pos:pos] = chunk
+
+    # Safety net: never let the seed shrink to nothing.
+    if len(data) == 0:
+        data = bytearray(b"\x00")
+
+    return data
+
+
+def main():
+    if len(sys.argv) != 3:
+        sys.stderr.write("usage: fuzzer <prng_seed> <iterations>\n")
+        sys.exit(1)
+
+    prng_seed = int(sys.argv[1])
+    iterations = int(sys.argv[2])
+
+    rng = random.Random(prng_seed)
+    data = load_seed()
+
+    for _ in range(iterations):
+        data = mutate_once(data, rng)
+
+    sys.stdout.buffer.write(bytes(data))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,9 @@
+Esper Cipher Assignment Write-up
+
+For this assignment, I first looked through the provided esper.py file to understand how the encryption works. I noticed that the cipher operates on raw bytes and applies two main steps: a bit rotation followed by an XOR operation using a repeating key.
+
+The key in esperkey.txt includes both a string and a rotation value. I extracted these values and converted the string portion into ASCII values so it could be used as the XOR key.
+
+To decrypt the ciphertext, I reversed the encryption process. I first applied XOR between each byte of the ciphertext and the corresponding key byte. Then I reversed the bit rotation by rotating each byte to the right by the specified number of bits.
+
+After processing all bytes, I wrote the result into esper_plaintext.txt. Finally, I ran the provided challenge script to verify my solution, and it produced the correct output and flag.

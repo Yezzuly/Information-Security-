@@ -1,0 +1,100 @@
+Name: Yeju Ham
+ID: [redacted]
+
+Pwn Them All - Web Attacks Module Report
+
+Level 1
+The login page loaded a script, /cgi-bin/verify.js, to handle authentication
+on the client side. The server returned a different version of this file
+depending on the Referer header in the request. When no Referer was sent,
+it returned a fake function, but when the Referer was set to the page that
+normally loads it (form.html), it returned the real script containing
+hardcoded credentials and the flag. I retrieved the flag by requesting the
+script directly with curl while manually setting the Referer header to
+match what the server expected.
+
+Level 2
+The users page fetched data from /cgi-bin/users.php using JavaScript. Looking
+at the page source revealed a "filter" parameter that was not connected to
+any visible input field, suggesting it was leftover debug functionality.
+Direct requests to the script failed until I added the same Referer header
+the page itself would send. Once that check passed, I found that the filter
+value was inserted directly into a shell command on the server without any
+sanitization. I confirmed this with a time-based test using a semicolon to
+chain a sleep command, then used the same injection to run a command that
+listed the script's directory and read a hidden file containing the flag.
+
+Level 3
+This challenge was a petition site where a submission could be looked up by
+an ID. Submitting a test entry without specifying an ID caused the server to
+generate one automatically. Comparing the generated ID to the email I had
+submitted showed that the ID was simply the MD5 hash of the email address.
+The page mentioned a specific person, so I found their email from a public
+faculty page, computed the MD5 hash of that email myself, and queried the
+script with it. The server returned their stored comment, which contained
+the flag.
+
+Level 4
+After logging in, the application exposed a form that read and wrote files
+under a storage directory based on a filename parameter. The server used
+realpath() to resolve the path but never blocked ".." sequences, so I could
+escape the storage directory. I first used this to read the script's own
+source code, which showed that file listing was blocked only for paths
+containing the word "storage," while file reading had no restriction at all.
+Using this gap, I listed parent directories until I found an unusual
+"session" folder being used to store PHP session data. I listed that folder
+to get the current session filename, then read that file directly. It
+contained the session data in plaintext, including a password field that
+held the flag.
+
+Level 5
+Both the store and retrieve forms in this password manager contained a
+hidden "admin" field defaulted to 0. Setting it to 1 switched the script
+into an alternate mode that read its inputs from cookies instead of the
+submitted form. On the store script, this admin mode treated a "blacklist"
+cookie as a filename and printed the contents of that file, so I used it to
+read the source code of the retrieve script. That source revealed that
+admin mode on the retrieve script checked a hardcoded master password and
+then searched every stored record for a given site name. Using the leaked
+master password along with the admin cookies, I searched for a specific
+site's entry and the server returned the stored credentials containing the
+flag.
+
+Level 6
+This page took the browser's User-Agent header, appended ".php" to it, and
+passed the result into eval(). Sending a junk User-Agent value caused an
+error message that confirmed exactly how the header was being used. I
+hosted a small PHP payload locally and pointed the User-Agent at it so the
+server would include and execute it as code running as the web user. With
+that capability, I first explored the script's own directory, then noticed
+that the actual flag file required higher privileges to read. However, the
+challenge author had copied the same content into a separate file in the
+same folder that was readable by the web server's user. Using my remote
+code execution, I read that file directly and obtained the flag.
+
+Level 7
+The registration form on this blog application checked whether a chosen
+username already existed by placing the submitted username directly into a
+SQL query. The response showed slightly different text depending on whether
+a name was free or already taken, which gave a usable yes/no signal. I
+confirmed the query was vulnerable by sending a username payload that forced
+the condition to always be true, which matched every account. From there, I
+used a boolean-based blind SQL injection technique, sending a payload for
+each character position of the admin account's password and checking
+whether the response indicated the name "already existed" to determine if
+the guessed character was correct. My first attempt returned the password in
+lowercase only because the default comparison ignored letter case, so I
+forced an exact-case comparison in the query and repeated the extraction to
+recover the real password, which was the flag.
+
+Level 8
+This level required watching the raw network traffic rather than exploiting
+a specific input. The login page posted credentials to a script that
+redirected successful logins to a second page asking for a two-factor code.
+Submitting any code to that second page returned a redirect back to the
+login page, but the HTTP response also contained a body that a normal
+browser would silently discard after following the redirect. By making the
+request with curl and viewing the full response instead of automatically
+following the redirect, I could see that hidden body, which was base64
+encoded. Decoding it revealed the flag had been included in a response body
+that the application never expected anyone to actually look at.

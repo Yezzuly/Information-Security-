@@ -1,0 +1,38 @@
+Program: /challenge/prog (Level 1)
+
+Binary info:
+  - setuid ELF 64-bit LSB executable, x86-64, dynamically linked, stripped
+
+Static analysis findings:
+  - strings output includes: "Size must be greater than zero."
+    -> suggests the program reads a size value from input first,
+       then reads that many bytes of data.
+  - Three calls to read@plt were found via objdump, consistent with:
+       (1) reading a size/length field
+       (2) reading the actual data based on that size
+  - No calls to gets/strcpy/scanf/sprintf were found; the vulnerability
+    is not a classic string function overflow but likely a
+    size-validation / bounds-checking issue around the read() calls.
+
+Behavior observed during testing:
+  - Input "AAAA\n" -> exits normally (code 0)
+  - Empty input -> exits normally (code 0)
+  - Declared size = 1000, followed by ~2000 bytes of data
+    -> SIGSEGV (exit code 139)
+
+Vulnerability class:
+  Buffer overflow caused by a mismatch between the declared/claimed
+  input size and the actual number of bytes supplied. The program
+  does not properly bound-check the incoming data against its
+  internal buffer size, allowing a sufficiently large input to
+  overflow an internal buffer and corrupt memory, resulting in a
+  segmentation fault.
+
+Fuzzer parameters used:
+  prng_seed  = 1
+  iterations = 1
+
+Result:
+  Crash file: level1.crash (147 bytes)
+  Signal: SIGSEGV (11)
+  Verified via: /challenge/challenge < level1.crash -> flag received

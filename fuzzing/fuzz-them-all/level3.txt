@@ -1,0 +1,36 @@
+Program: /challenge/prog (Level 3)
+
+Binary info:
+  - setuid ELF 64-bit LSB executable, x86-64, dynamically linked, stripped
+
+Static analysis findings:
+  - strings output includes both:
+      "Invalid flag. Flag value: %d."
+      "Size of the packet to readd must be greater than zero."
+  - Four calls to read@plt found via objdump (same count as Level 2),
+    suggesting a similar multi-field parsing structure:
+       (1) size field
+       (2) flag field
+       (3-4) data reads based on that size
+  - No gets/strcpy/scanf/sprintf calls found.
+
+Behavior observed during testing:
+  - Input "AAAA\n" -> exits normally (code 0)
+  - Empty input -> exits normally (code 0)
+    (slightly different from Level 2, which returned exit code 255
+     on empty input; suggests a minor difference in validation order
+     or conditions, but overall structure is very similar)
+
+Vulnerability class:
+  Same pattern as Levels 1-2: buffer overflow from a mismatch between
+  a declared/claimed size and the actual number of input bytes
+  supplied, after passing a "flag" validation check.
+
+Fuzzer parameters used:
+  prng_seed  = 1
+  iterations = 15
+
+Result:
+  Crash file: level3.crash (130 bytes)
+  Signal: SIGSEGV (11)
+  Verified via: /challenge/challenge < level3.crash -> flag received
